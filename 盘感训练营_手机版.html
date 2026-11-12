@@ -5969,6 +5969,17 @@ PAGE.render.home=function(){
     <div class="t2" style="font-size:.7rem;margin-top:6px">课程完成度 ${lessonDone()}/${CUR.flat.length} 课 · 结业后晋升「盘感大师」</div>
   </div>
 
+  ${!cloudOn()?`
+  <div class="card"><h3>☁️ 云同步 · 名字 + 密码</h3>
+    <div class="t2" style="font-size:.74rem;line-height:1.6">设好后手机/电脑进度自动互通（AES加密上云、多人各自独立、换设备秒找回）</div>
+    <div class="row" style="margin-top:8px">
+      <input type="text" id="hcName" placeholder="起个名字（≤20字）" maxlength="20" style="flex:1">
+      <input type="password" id="hcPwd" placeholder="密码≥6位" style="flex:1">
+    </div>
+    <button class="btn block" style="margin-top:8px" id="hcGo">☁️ 开通并自动同步</button>
+    <div class="t2 warn" style="font-size:.66rem;margin-top:6px" id="hcMsg"></div>
+  </div>`:''}
+
   <div class="card"><h3>✅ 今日任务</h3>
     <div class="list-item clickable" onclick="go('drill')"><div class="li-main"><b>📝 每日一练</b> <span class="t2" style="font-size:.72rem">10道题保持手感</span></div>
       <span class="chip ${daily.done>=daily.target?'down':'info'}">${daily.done}/${daily.target}</span></div>
@@ -6004,6 +6015,14 @@ PAGE.render.home=function(){
   <div class="disclaimer">本应用仅为学习训练工具，不构成任何投资建议。训练成绩好 ≠ 实盘会赚钱（存在幸存者偏差）。</div>`;
 
   drawRadar($('#homeRadar'),['均线','量价','情绪','指标','风控'],radarValues());
+  const hg=$('#hcGo');
+  if(hg)hg.addEventListener('click',async()=>{
+    hg.disabled=true; $('#hcMsg').textContent='处理中…（加密派生约1秒）';
+    try{
+      const r=await cloudLogin($('#hcName').value,$('#hcPwd').value,'auto');
+      toast('☁️ '+r); PAGE.render.home();
+    }catch(e){ $('#hcMsg').textContent=e.message; hg.disabled=false; }
+  });
   refreshSentimentBackground();
 };
 
@@ -7300,8 +7319,8 @@ PAGE.render.mine=function(){
         <div class="stat"><div class="v num">${passedCount()}/9</div><div class="k">关卡通过</div></div>
         <div class="stat"><div class="v num">${closed.length?Math.round(closed.filter(t=>t.pnl>0).length/closed.length*100)+'%':'--'}</div><div class="k">模拟盘胜率</div></div>
       </div></div>
-    <div class="card"><h3>📊 盘感雷达</h3><div class="radar-box"><canvas id="mineRadar" data-h="232" style="width:min(300px,88vw)"></canvas></div></div>
     ${cloudCard()}
+    <div class="card"><h3>📊 盘感雷达</h3><div class="radar-box"><canvas id="mineRadar" data-h="232" style="width:min(300px,88vw)"></canvas></div></div>
     <div class="card"><h3>📤 本机备份码</h3>
       <div class="t2" style="font-size:.7rem;margin-bottom:8px">数据同时存本机（IndexedDB+localStorage 双写）。云同步之外，还可以导出备份码文字版（微信发给自己）。</div>
       <div class="row"><button class="btn small" onclick="exportBackup()">导出备份码</button>
@@ -7483,7 +7502,22 @@ function showOnboard(){
         $('#obBody').innerHTML=`<div style="text-align:center"><div class="em">🎓</div>
           <h2 style="font-size:1rem">定级完成：答对 ${right}/5</h2>
           <p style="margin:8px 0">推荐从 <b class="gold">${CUR.levels.find(l=>l.i===startLvl).n}</b> 开始${right>=4?'（你有一定基础，可先跳关）':''}${right<2?'（零基础起点，跟着课程走就行）':''}</p>
-          <button class="btn block" style="margin-top:10px" onclick="closeModal(true);go('home')">进入训练营</button></div>`;
+          <div style="text-align:left;background:var(--surface2);border-radius:10px;padding:10px;margin-top:10px">
+            <div style="font-size:.8rem;font-weight:600">☁️ 顺手绑定云同步（推荐，可跳过）</div>
+            <div class="t2" style="font-size:.68rem;margin:2px 0 6px">名字+密码 → 手机电脑进度互通，AES加密存储</div>
+            <div class="row"><input type="text" id="obCn" placeholder="名字" maxlength="20" style="flex:1">
+            <input type="password" id="obCp" placeholder="密码≥6位" style="flex:1"></div>
+            <div class="t2 warn" style="font-size:.64rem;margin-top:4px" id="obCm"></div>
+            <button class="btn block small" style="margin-top:8px" id="obCgo">绑定并进入训练营</button>
+            <button class="btn gray block small" style="margin-top:6px" onclick="closeModal(true);go('home')">跳过，直接进入</button>
+          </div></div>`;
+        $('#obCgo').addEventListener('click',async()=>{
+          $('#obCgo').disabled=true; $('#obCm').textContent='处理中…';
+          try{
+            const r=await cloudLogin($('#obCn').value,$('#obCp').value,'auto');
+            closeModal(true); go('home'); toast('☁️ '+r);
+          }catch(e){ $('#obCm').textContent=e.message; $('#obCgo').disabled=false; }
+        });
       }
     });
   }
