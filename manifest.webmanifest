@@ -1,0 +1,14 @@
+{
+  "name": "盘感训练营",
+  "short_name": "盘感训练",
+  "description": "A股交易学习与盘感训练：均线·量能·换手率·市场情绪，从凭感觉买训练成看数据买",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0b0e13",
+  "theme_color": "#0b0e13",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
