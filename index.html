@@ -2858,13 +2858,13 @@ class KChart{
   }
   _bind(){
     const cv=this.cv; this.ptrs=new Map(); this.drag=null; this.pinch0=null;
-    cv.addEventListener('pointerdown',e=>{ cv.setPointerCapture(e.pointerId); this.ptrs.set(e.pointerId,{x:e.offsetX,y:e.offsetY});
-      if(this.ptrs.size===1){ this.drag={x0:e.offsetX,i0:this.view.i0,moved:false}; }
+    cv.addEventListener('pointerdown',e=>{ cv.setPointerCapture(e.pointerId); this.ptrs.set(e.pointerId,{x:this._ox(e),y:this._oy(e)});
+      if(this.ptrs.size===1){ this.drag={x0:this._ox(e),i0:this.view.i0,moved:false}; }
       else if(this.ptrs.size===2){ const p=[...this.ptrs.values()]; this.pinch0={d:Math.abs(p[0].x-p[1].x),n:this.view.n,cx:(p[0].x+p[1].x)/2}; this.drag=null; }
     });
     cv.addEventListener('pointermove',e=>{
-      if(!this.ptrs.has(e.pointerId)){ this._cross(e.offsetX); return; }
-      this.ptrs.set(e.pointerId,{x:e.offsetX,y:e.offsetY});
+      if(!this.ptrs.has(e.pointerId)){ this._cross(this._ox(e)); return; }
+      this.ptrs.set(e.pointerId,{x:this._ox(e),y:this._oy(e)});
       if(this.pinch0&&this.ptrs.size===2){
         const p=[...this.ptrs.values()]; const d=Math.abs(p[0].x-p[1].x);
         if(this.pinch0.d>4){ const r=d/this.pinch0.d; this._zoomAround(this.pinch0.cx, clamp(Math.round(this.pinch0.n/r),20,this.bars.length)); }
@@ -2872,27 +2872,30 @@ class KChart{
       }
       if(this.drag){
         const cw=this._cw();
-        const dx=e.offsetX-this.drag.x0;
+        const dx=this._ox(e)-this.drag.x0;
         if(Math.abs(dx)>6)this.drag.moved=true;
         if(this.drag.moved){
           const shift=Math.round(dx/cw);
           const i0=clamp(this.drag.i0-shift,0,Math.max(0,this.bars.length-this.view.n));
-          this.view.i0=i0; this.render(); this._cross(e.offsetX,true);
+          this.view.i0=i0; this.render(); this._cross(this._ox(e),true);
         }
-      } else this._cross(e.offsetX);
+      } else this._cross(this._ox(e));
     });
     const up=e=>{ this.ptrs.delete(e.pointerId);
       if(this.ptrs.size<2)this.pinch0=null;
-      if(this.ptrs.size===0){ if(this.drag&&!this.drag.moved&&this.o.onTap)this.o.onTap(e.offsetX,e.offsetY); this.drag=null; } };
+      if(this.ptrs.size===0){ if(this.drag&&!this.drag.moved&&this.o.onTap)this.o.onTap(this._ox(e),this._oy(e)); this.drag=null; } };
     cv.addEventListener('pointerup',up); cv.addEventListener('pointercancel',up);
     cv.addEventListener('pointerleave',()=>{ this.cursor=null; if(this.tip)this.tip.style.display='none'; this.render(); });
     cv.addEventListener('wheel',e=>{ e.preventDefault();
       const f=e.deltaY>0?1.15:0.87;
-      this._zoomAround(e.offsetX, clamp(Math.round(this.view.n*f),20,this.bars.length));
+      this._zoomAround(this._ox(e), clamp(Math.round(this.view.n*f),20,this.bars.length));
     },{passive:false});
     cv.addEventListener('dblclick',()=>{ this.view={i0:Math.max(0,this.bars.length-this.view.n),n:this.view.n}; this.render(); });
   }
   _cw(){ const {w}=this._dim; return (w-46)/this.view.n; }
+  /* 兼容性：部分安卓内核触屏指针事件没有 offsetX，用 clientX-rect 兜底 */
+  _ox(e){ const r=this.cv.getBoundingClientRect(); return (e.clientX||0)-r.left; }
+  _oy(e){ const r=this.cv.getBoundingClientRect(); return (e.clientY||0)-r.top; }
   _zoomAround(cx,newN){
     const cw=this._cw();
     const idxAt=this.view.i0+cx/cw;
@@ -3045,10 +3048,23 @@ class KChart{
 /* ================= 形态图渲染（图鉴 + 看图题共用） =================
    ma: 可选均线叠加 [{v:[...],col,label}]，v 与K线同一示意尺度 */
 function renderPattern(cv,candles,h,labels,ma){
-  const dpr=window.devicePixelRatio||1;
-  const w=cv.clientWidth||cv.getAttribute('width')||260;
-  cv.width=Math.round(w*dpr); cv.height=Math.round(h*dpr); cv.style.height=h+'px';
-  const ctx=cv.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
+  /* 兼容性修复：解析卡从 display:none 展开的同帧测量会拿到排版前旧宽度（手机高DPR下错位裁切），
+     因此：① 用 getBoundingClientRect 强制排版后测量并夹紧到父容器 ② 宽度可疑时 rAF 重试
+     ③ 显式写 style.width（覆盖内联 min()）④ 绘制后再复检一次，宽度变了就重绘 */
+  const paint=(allowRecheck)=>{
+    const dpr=window.devicePixelRatio||1;
+    const r=cv.getBoundingClientRect();
+    let w=Math.round(r.width)||Math.round(cv.offsetWidth)||260;
+    const pw=cv.parentNode?Math.round(cv.parentNode.getBoundingClientRect().width):0;
+    if(pw>0&&w>pw)w=pw;
+    if(w<40){  // 容器还不可见，下一帧再试
+      if(!cv._pgRetry){ cv._pgRetry=true; requestAnimationFrame(()=>paint(true)); }
+      return;
+    }
+    cv._pgRetry=false;
+    cv.width=Math.round(w*dpr); cv.height=Math.round(h*dpr);
+    cv.style.width=w+'px'; cv.style.height=h+'px'; cv.style.maxWidth='100%';
+    const ctx=cv.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
   ctx.clearRect(0,0,w,h);
   const n=candles.length;
   const pad=8, cw=(w-pad*2)/n;
@@ -3077,6 +3093,13 @@ function renderPattern(cv,candles,h,labels,ma){
   });
   if(labels){ ctx.fillStyle=css('--muted'); ctx.font='10px sans-serif'; ctx.textAlign='center';
     labels.forEach((t,i)=>ctx.fillText(t,pad+i*cw+cw/2,h-0.5)); }
+  if(allowRecheck!==false) requestAnimationFrame(()=>setTimeout(()=>{
+    const w2=Math.round(cv.getBoundingClientRect().width);
+    if(w2>=40&&Math.abs(w2-w)>2&&!cv._pgFixed){ cv._pgFixed=true; paint(false); }
+    else cv._pgFixed=false;
+  },60));
+  };
+  paint();
 }
 
 /* ================= 雷达图 ================= */
