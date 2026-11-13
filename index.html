@@ -3297,7 +3297,12 @@ function qHtml(q,idx,total,qid,state){
   // state: {picked:null|idx|bool|[], checked:false}
   const tag={s:'单选',j:'判断',m:'多选',c:'看图题'}[q.t]||'';
   let chart='';
-  if(q.t==='c'&&q.p&&typeof PATTERNS!=='undefined'&&PATTERNS[q.p]){
+  /* v1.5 全题图形辅助：每道题（含考试/练习/课程巩固）都强制配图 */
+  if(typeof qFigFor==='function'){
+    const fig=qFigFor(q);
+    if(fig)chart=`<div class="q-chart"><canvas data-qfig="${fig.kind}:${fig.id}" style="width:min(260px,86vw)"></canvas>
+      <div class="t2" style="font-size:.68rem;margin-top:4px">📊 图形辅助${fig.cap?' · '+esc(fig.cap):''}</div></div>`;
+  } else if(q.t==='c'&&q.p&&typeof PATTERNS!=='undefined'&&PATTERNS[q.p]){
     const pat=PATTERNS[q.p];
     chart=`<div class="q-chart"><canvas data-pat="${q.p}" style="width:min(260px,86vw)"></canvas>
       <div class="t2" style="font-size:.68rem;margin-top:4px">▲ 图中形态（示意）</div></div>`;
@@ -3387,7 +3392,8 @@ function quizFlow(container,questions,opts){
     /* opts.coach（如训练场E）：每题上方插入「思路会话框」，答后接对照复盘 */
     container.innerHTML=((opts.coach&&typeof COACH!=='undefined')?COACH.quizCardHtml():'')+qHtml(q,cur,questions.length,qid,st);
     if(opts.coach&&typeof COACH!=='undefined')COACH.mountQuiz(opts.coach,q,container);
-    if(q.t==='c'&&q.p&&PATTERNS[q.p]){
+    if(typeof drawQFigs==='function')drawQFigs(container);
+    else if(q.t==='c'&&q.p&&PATTERNS[q.p]){
       const cv=$('canvas',container);
       renderPattern(cv,PATTERNS[q.p].candles,120,PATTERNS[q.p].xl||null,PATTERNS[q.p].ma);
     }
@@ -6322,6 +6328,181 @@ function conceptKeyOf(t){
   return null;
 }
 
+/* --- v1.4 三品种图形辅助（期货/加密/基金） --- */
+const margin_lever={n:'图解 · 保证金杠杆：10%押金撬动全额合约，盈亏同倍放大',draw(cv){const h=220;const {ctx,w}=setupCanvas(cv,h);
+ const Y=yMap(28,64,18,104),X=spanX(ctx,8,24,40);
+ pricePath(ctx,[40,42,45,43,48,52,50,55],X,Y,TXT(),1.6);
+ text(ctx,12,12,'合约价格：波动约 ±3%',TXT(),'left',9.5,true);
+ const bx=12,bw=w-24;
+ const bar=(y,frac,label,col)=>{ctx.fillStyle=css('--surface3');ctx.fillRect(bx,y,bw,26);
+   ctx.fillStyle=col;ctx.fillRect(bx,y,bw*frac,26);
+   text(ctx,bx+4,y+17,label,TXT(),'left',9,true);};
+ bar(126,0.10,'押金：合约价值的 10%',GOLD());
+ bar(160,1.0,'盈亏按合约全额计算（10倍杠杆）',UP());
+ text(ctx,12,200,'价格反向波动10% → 押金亏光（爆仓）；正向波动10% → 押金翻倍',MUT(),'center',9);}};
+const long_short={n:'图解 · 双向交易：做多赚上涨，做空也能赚下跌',draw(cv){const h=210;const {ctx,w}=setupCanvas(cv,h);
+ const half=w/2;
+ const Y1=yMap(30,66,24,110),X1=spanX(ctx,5,half*0.5,half*0.4);
+ pricePath(ctx,[34,40,48,58,66],X1,Y1,UP(),2);
+ arrow(ctx,X1(4)-10,Y1(58)+26,X1(4)+6,Y1(66)+8,UP());
+ text(ctx,half*0.5-8,16,'① 做多：先买后卖',UP(),'left',9.5,true);
+ text(ctx,half*0.5-8,Y1(66)+26,'涨了→平仓赚差价',UP(),'left',9,true);
+ const Y2=yMap(30,66,24,110),X2=spanX(ctx,5,half+8,w-half*0.35);
+ pricePath(ctx,[66,58,48,40,32],X2,Y2,DN(),2);
+ arrow(ctx,X2(4)+10,Y2(40)+26,X2(4)-4,Y2(32)+8,DN());
+ text(ctx,half+10,16,'② 做空：先卖后买',DN(),'left',9.5,true);
+ text(ctx,half+10,Y2(32)+26,'跌了→买回平仓赚差价',DN(),'left',9,true);
+ text(ctx,w*0.5,196,'股票只能①；期货两个方向都能做——下跌也是机会（也是风险）',MUT(),'center',9);}};
+const mtm_loss={n:'图解 · 逐日盯市：每天真扣钱，跌破强平线就出局',draw(cv){const h=225;const {ctx,w}=setupCanvas(cv,h);
+ const X=spanX(ctx,7,20,32);
+ const Y=yMap(0,100,20,160);
+ vbars(ctx,[100,86,72,60,44,30,16,4],X,168,120,i=>i<4?GOLD():UP());
+ line(ctx,[[14,Y(12)],[w-22,Y(12)]],UP(),1.5,[4,3]);
+ text(ctx,w-22,Y(12)-6,'强平线（保证金不足）',UP(),'right',9);
+ const eq=[92,80,88,74,58,40,22];
+ pricePath(ctx,eq,X,Y,TXT(),1.8);
+ text(ctx,12,12,'每日收盘结算：盈亏当天真划账',TXT(),'left',9.5,true);
+ text(ctx,w*0.5,204,'股票浮亏可以装死；期货每天真扣钱——扛单的下场是强平/爆仓',MUT(),'center',9);}};
+const basis_conv={n:'图解 · 基差收敛：到期时期货价向现货价靠拢',draw(cv){const h=210;const {ctx,w}=setupCanvas(cv,h);
+ const X=spanX(ctx,7,22,30),Y=yMap(38,62,20,150);
+ pricePath(ctx,[52,52.5,53,53.5,54,54.5],X,Y,UP(),2);
+ pricePath(ctx,[46,47.5,49,50.5,52,54],X,Y,GOLD(),2);
+ text(ctx,X(0),Y(52)-10,'现货价',UP(),'left',9,true);
+ text(ctx,X(0),Y(46)-10,'期货价（含预期）',GOLD(),'left',9,true);
+ line(ctx,[[X(5)+4,Y(54.5)],[w-20,Y(54.5)]],MUT(),1.2,[3,2]);
+ text(ctx,w-20,Y(54.5)-8,'交割日',MUT(),'right',9);
+ text(ctx,X(3),Y(49)-14,'随到期临近，两线必然收敛',GOLD(),'center',9,true);
+ text(ctx,w*0.5,196,'期货价=市场对未来的出价；升水/贴水都会在到期前向现货回归',MUT(),'center',9);}};
+const main_roll={n:'图解 · 移仓换月：旧合约到期前，把仓位搬到新月份',draw(cv){const h=220;const {ctx,w}=setupCanvas(cv,h);
+ const X=spanX(ctx,8,20,34),Y=yMap(30,64,18,128);
+ pricePath(ctx,[52,50,48,46,44,42],X,Y,PUR(),2);
+ text(ctx,X(0)+2,Y(52)+16,'旧月份合约（流动性↓）',PUR(),'left',9,true);
+ pricePath(ctx,[40,42,44,46,50,54],X,Y,GOLD(),2);
+ text(ctx,X(5),Y(54)-12,'新月份合约（主力接棒）',GOLD(),'left',9,true);
+ vbars(ctx,[80,70,46,30,64,84],X,204,58,i=>i>=3?UP():MUT);
+ text(ctx,X(4)+2,188,'移仓期量能搬家',GOLD(),'center',9,true);
+ text(ctx,w*0.5,220,'个人户到期前必须平仓或移仓；换月期点差大、易异常波动',MUT(),'center',9);}};
+const chain_ledger={n:'图解 · 区块链：全世界的账本一人一份，改一份没用',draw(cv){const h=180;const {ctx,w}=setupCanvas(cv,h);
+ const bw=(w-70)/4;
+ for(let i=0;i<4;i++){ const x=14+i*(bw+16);
+   ctx.fillStyle=css('--surface3');ctx.fillRect(x,54,bw,54);
+   ctx.strokeStyle=i<3?css('--border2'):GOLD();ctx.strokeRect(x,54,bw,54);
+   text(ctx,x+bw/2,80,'区块'+(i+1),TXT(),'center',9.5,true);
+   if(i<3)arrow(ctx,x+bw+2,81,x+bw+14,81,GOLD());}
+ text(ctx,w*0.5,130,'每个节点都有一份完整账本：改任何一份，其他副本立即对不上',MUT(),'center',9);
+ text(ctx,w*0.5,150,'→ 想篡改就得同时改掉全世界大多数副本＝几乎不可能',GOLD(),'center',9,true);}};
+const keys_safe={n:'图解 · 私钥/助记词：谁掌握它，谁就拥有币',draw(cv){const h=190;const {ctx,w}=setupCanvas(cv,h);
+ const bx=14;
+ ctx.fillStyle=css('--surface3');ctx.fillRect(bx,40,w-28,50);
+ text(ctx,bx+10,62,'私钥：一串秘密数字 ＝ 所有权本身',TXT(),'left',10,true);
+ text(ctx,bx+10,80,'助记词：12/24个单词的备份形式',TXT(),'left',9.5);
+ ctx.fillStyle=css('--surface3');ctx.fillRect(bx,110,w-28,50);
+ text(ctx,bx+10,132,'✅ 正确保管：纸上抄写·多地点离线·永不上网',DN(),'left',9.5,true);
+ text(ctx,bx+10,148,'❌ 危险动作：拍照·发微信·截屏·云盘',UP(),'left',9.5,true);
+ text(ctx,w*0.5,182,'私钥丢失＝资产永久取不回；私钥泄露＝资产被搬空（链上不可逆）',MUT(),'center',9);}};
+const stable_peg={n:'图解 · 稳定币锚定：平时贴着1美元，脱锚就是事故',draw(cv){const h=200;const {ctx,w}=setupCanvas(cv,h);
+ const X=spanX(ctx,7,20,30),Y=yMap(0.9,1.1,20,140);
+ line(ctx,[[14,Y(1)],[w-22,Y(1)]],MUT(),1.2,[4,3]);
+ text(ctx,w-22,Y(1)-6,'锚定价 1.00 USDT',MUT(),'right',9);
+ const px=[1.001,0.999,1.0,1.001,0.998,1.0,1.002,1.0,0.997,1.0];
+ line(ctx,px.map((p,i)=>[X(i),Y(p)]),GOLD(),1.8);
+ text(ctx,X(8),Y(0.997)-12,'小幅波动＝正常',GOLD(),'center',9,true);
+ text(ctx,14,170,'⚠️ 脱锚案例：UST 曾从1美元跌到0.02——储备不足+信任崩塌',UP(),'left',9.5,true);
+ text(ctx,w*0.5,192,'稳定币≠绝对安全的钱，它也是一种需要信用背书的资产',MUT(),'center',9);}};
+const perp_fund={n:'图解 · 永续合约：杠杆对赌+资金费率锚定',draw(cv){const h=210;const {ctx,w}=setupCanvas(cv,h);
+ const X=spanX(ctx,7,20,30),Y=yMap(60,76,20,120);
+ pricePath(ctx,[68,72,66,70,62,66,58],X,Y,TXT(),1.7);
+ const fy=[0.4,-0.6,0.5,-0.8,-0.5];
+ fy.forEach((f,i)=>{ const x=X(i)+((X(1)-X(0))/2);
+   const y=Y(76)-8; const hgt=Math.abs(f)*26;
+   ctx.fillStyle=f>0?UP():DN();ctx.fillRect(x-3,y-hgt,6,hgt);
+   text(ctx,x,y-hgt-4,f>0?'+':'−',f>0?UP():DN(),'center',8.5,true);});
+ text(ctx,12,16,'价格：永续合约跟踪现货',TXT(),'left',9.5,true);
+ text(ctx,12,132,'上方小柱：资金费率（多空定期互付，把合约价拉回现货）',GOLD(),'left',9,true);
+ text(ctx,w*0.5,200,'100倍杠杆+无涨跌停+7×24：加密合约的爆仓比期货更极端',MUT(),'center',9);}};
+const crypto_vol={n:'图解 · 加密波动：7×24无涨跌停的极端过山车',draw(cv){const h=215;const {ctx,w}=setupCanvas(cv,h);
+ const X=spanX(ctx,6,20,30),Y=yMap(0,100,18,150);
+ line(ctx,[[14,Y(30)],[w-22,Y(30)]],MUT(),1.2,[3,2]);
+ text(ctx,w-22,Y(30)-6,'A股常见波动范围（参考）',MUT(),'right',8.5);
+ const px=[30,44,36,58,50,78,62,88,70,96,52,66,38,30];
+ pricePath(ctx,px,X,Y,PUR(),1.8);
+ circle(ctx,X(9),Y(96),13,UP());
+ text(ctx,X(9),Y(96)-16,'单日±30%常见',UP(),'center',9,true);
+ circle(ctx,X(12),Y(38),13,INFO());
+ text(ctx,X(12),Y(38)+26,'深夜暴跌也常见',INFO(),'center',9,true);
+ text(ctx,w*0.5,180,'7×24交易·多数无涨跌停·高杠杆——情绪周期被压缩到数月一轮',MUT(),'center',9);
+ text(ctx,w*0.5,200,'训练场"加密货币"类别：用极端行情练习识别「趋势 vs 噪音」',MUT(),'center',9);}};
+const fng_gauge={n:'图解 · 恐惧贪婪指数：0极恐—100极贪的情绪计',draw(cv){const h=170;const {ctx,w}=setupCanvas(cv,h);
+ const cx=w*0.5,cy=138,R=Math.min(w*0.36,110);
+ ctx.lineWidth=16;
+ const seg=(a0,a1,col)=>{ctx.strokeStyle=col;ctx.beginPath();ctx.arc(cx,cy,R,Math.PI+a0,Math.PI+a1);ctx.stroke();};
+ seg(0,0.5,'#33b077');seg(0.5,1.2,'#e8b339');seg(1.2,Math.PI,'#f0524f');
+ const ang=Math.PI+Math.PI*0.72;
+ ctx.strokeStyle=css('--text');ctx.lineWidth=3;
+ ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(ang)*(R-6),cy+Math.sin(ang)*(R-6));ctx.stroke();
+ text(ctx,cx-R+14,cy+26,'0 极恐',INFO(),'center',9,true);
+ text(ctx,cx+R-14,cy+26,'100 极贪',UP(),'center',9,true);
+ text(ctx,cx,cy-R*0.35,'当前：恐慌区',GOLD(),'center',10,true);
+ text(ctx,w*0.5,166,'极值反着看：极度贪婪=警惕，极度恐慌=观察机会——仅情绪参考',MUT(),'center',9);}};
+const nav_line={n:'图解 · 基金净值：每一份值多少钱（每日一个价）',draw(cv){const h=210;const {ctx,w}=setupCanvas(cv,h);
+ const X=spanX(ctx,7,20,30),Y=yMap(0.8,1.5,20,150);
+ const nav=[1.0,1.02,0.98,1.05,1.1,1.06,1.14,1.12,1.2,1.18,1.28];
+ pricePath(ctx,nav,X,Y,GOLD(),2);
+ circle(ctx,X(10),Y(1.28),12,UP());
+ text(ctx,X(10),Y(1.28)-14,'今日净值 1.28',UP(),'center',9,true);
+ text(ctx,X(0),Y(1.0)-10,'买入净值 1.00',GOLD(),'left',9,true);
+ text(ctx,X(10)+2,Y(1.28)+20,'持有收益 = (1.28/1.00−1)×100% = +28%',UP(),'left',9,true);
+ text(ctx,w*0.5,192,'申购赎回按每日收盘净值成交（一天一个价）；无K线量能，看趋势',MUT(),'center',9);}};
+const dca_smile={n:'图解 · 定投微笑曲线：跌的时候攒便宜筹码',draw(cv){const h=230;const {ctx,w}=setupCanvas(cv,h);
+ const X=spanX(ctx,7,22,30),Y=yMap(20,90,24,168);
+ const nav=[80,58,42,30,26,28,40,58,80];
+ line(ctx,nav.map((v,i)=>[X(i),Y(v)]),GOLD(),2.2);
+ text(ctx,X(0),Y(80)-10,'净值',GOLD(),'left',9,true);
+ nav.slice(0,7).forEach((v,i)=>{ if(i%1===0){ctx.fillStyle=css('--info');
+   ctx.beginPath();ctx.arc(X(i),Y(v)-6,4,0,7);ctx.fill();} });
+ text(ctx,X(1),Y(58)-14,'每月定额买入：跌得越深→买到的份额越多',INFO(),'left',9,true);
+ circle(ctx,X(8),Y(80),13,DN());
+ text(ctx,X(8),Y(80)+26,'回升：低价筹码利润最大',DN(),'center',9,true);
+ text(ctx,w*0.5,214,'微笑曲线成立前提：标的长期不死（宽基指数✓，山寨币✗）+ 钱是长钱',MUT(),'center',9);}};
+const fee_drag={n:'图解 · 费用复利差：每年1.5% vs 0.5%，30年差出一大截',draw(cv){const h=200;const {ctx,w}=setupCanvas(cv,h);
+ const X=spanX(ctx,6,22,30),Y=yMap(0,100,24,160);
+ const g=[],l=[];let a=100,b=100;
+ for(let i=0;i<=30;i+=2){ g.push(a); l.push(b); a*=(1-0.02); b*=(1-0.006); }
+ const all=g.concat(l),hi=Math.max(...all),lo=Math.min(...all);
+ const Yv=v=>160-(v-lo)/(hi-lo)*(160-24);
+ const gpts=g.map((v,i)=>[X(i),Yv(v)]),lpts=l.map((v,i)=>[X(i),Yv(v)]);
+ line(ctx,gpts,UP(),2);line(ctx,lpts,DN(),2);
+ text(ctx,X(0)-2,Yv(g[0])-8,'高费率：一年被扣 2%',UP(),'left',9,true);
+ text(ctx,X(15),Yv(l[15])+16,'低费率：一年只扣 0.6%',DN(),'left',9,true);
+ text(ctx,14,14,'30年复利模拟（同收益假设）',MUT(),'left',9,true);
+ text(ctx,w*0.5,192,'费用是确定性负复利：时间越长，差距越大——长期持有选低费率',MUT(),'center',9);}};
+const max_dd_fig={n:'图解 · 最大回撤：从最高点到最低点的最深跌幅',draw(cv){const h=230;const {ctx,w}=setupCanvas(cv,h);
+ const X=spanX(ctx,7,22,30),Y=yMap(20,100,20,160);
+ const nav=[30,42,54,70,84,64,52,58,44,60,72];
+ pricePath(ctx,nav,X,Y,GOLD(),2);
+ const px1=X(4),py1=Y(84),px2=X(8),py2=Y(44);
+ ctx.fillStyle='rgba(240,82,79,.14)';ctx.fillRect(px1,py1,px2-px1,py2-py1);
+ line(ctx,[[px1,py1],[px2,py1]],UP(),1.2,[3,2]);
+ line(ctx,[[px2,py2],[px2,py1]],UP(),1.2,[3,2]);
+ text(ctx,X(4),py1-8,'最高点',GOLD(),'center',9,true);
+ text(ctx,px2+6,py2+4,'最低点',DN(),'left',9,true);
+ text(ctx,(px1+px2)/2,(py1+py2)/2,'最大回撤 −48%',UP(),'center',9.5,true);
+ text(ctx,w*0.5,204,'回撤−48%需要涨92%才回本。选基金先看历史最大回撤：拿得住的收益才算数',MUT(),'center',9);}};
+const risk_ladder={n:'图解 · 基金风险阶梯：货币→债券→混合→股票（指数）',draw(cv){const h=220;const {ctx,w}=setupCanvas(cv,h);
+ const steps=[['货币基金','几乎不亏·收益低',INFO()],['债券基金','小波动·也可能亏',GOLD()],['混合基金','股债搭配·中等',css('--warn')],['股票/指数','波动≈股市·最大',UP()]];
+ const sw=(w-40)/4;
+ steps.forEach((s,i)=>{ const x=12+i*(sw+4); const yh=40+i*38;
+   ctx.fillStyle=s[2];ctx.globalAlpha=.85;
+   ctx.fillRect(x,200-yh,sw,yh);ctx.globalAlpha=1;
+   text(ctx,x+sw/2,200-yh-8,s[0],TXT(),'center',9.5,true);
+   text(ctx,x+sw/2,200-yh-22,s[1],MUT(),'center',8);
+   text(ctx,x+sw/2,214,'风险↑',MUT(),'center',8);});
+ arrow(ctx,12,206,w-30,206,MUT());
+ text(ctx,w*0.5,218,'先问「这笔钱能承受多大波动」——再上阶梯挑基金',MUT(),'center',9);}};
+Object.assign(CONCEPT_FIGS,{
+ margin_lever,long_short,mtm_loss,basis_conv,main_roll,
+ chain_ledger,keys_safe,stable_peg,perp_fund,crypto_vol,fng_gauge,
+ nav_line,dca_smile,fee_drag,max_dd_fig,risk_ladder});
 return {
  candle_anatomy,bull_bear,shadow_types,
  ma_what,ma5_life,ma_cross,ma_arrange,ma_support,bias_fig,ma_lag,
@@ -6331,6 +6512,59 @@ return {
  stop_fig,rr_fig,z_breakout,z_topvol,
  CONCEPT_FIGS,conceptKeyOf};
 })();
+
+
+/* ================= 全题图形辅助（v1.4）：每道题至少配一幅图 ================= */
+const QFIG_KW=[
+ {kw:['爆仓','强平','追加保证金','当日结算','盯市'],id:'mtm_loss',cap:'逐日盯市与强平'},
+ {kw:['保证金','杠杆','押金'],id:'margin_lever',cap:'保证金与杠杆'},
+ {kw:['做空','做多','双向','先卖后买','买涨','卖跌'],id:'long_short',cap:'双向交易'},
+ {kw:['基差','升水','贴水','收敛','期货价与现货'],id:'basis_conv',cap:'基差收敛'},
+ {kw:['移仓','交割','主力合约','连续合约','到期日','换月'],id:'main_roll',cap:'移仓换月'},
+ {kw:['区块链','账本','挖矿','去中心化','比特币'],id:'chain_ledger',cap:'区块链账本'},
+ {kw:['私钥','助记词','钱包','托管','not your keys'],id:'keys_safe',cap:'私钥保管'},
+ {kw:['稳定币','USDT','脱锚','锚定'],id:'stable_peg',cap:'稳定币锚定'},
+ {kw:['永续','资金费率','对赌','合约爆仓'],id:'perp_fund',cap:'永续合约'},
+ {kw:['7×24','24小时','无涨跌停','过山车','极端波动','波动特性'],id:'crypto_vol',cap:'加密波动特性'},
+ {kw:['恐惧贪婪','情绪指数'],id:'fng_gauge',cap:'恐惧贪婪指数'},
+ {kw:['净值','份额','累计净值','申购','赎回','分红'],id:'nav_line',cap:'基金净值'},
+ {kw:['ETF','场内','折溢价'],id:'nav_line',cap:'ETF与净值'},
+ {kw:['定投','微笑曲线','摊平','固定金额'],id:'dca_smile',cap:'定投微笑曲线'},
+ {kw:['管理费','托管费','费率','申赎费','销售服务费','A类','C类'],id:'fee_drag',cap:'费用复利差'},
+ {kw:['最大回撤','深谷','持有体验','拿得住'],id:'max_dd_fig',cap:'最大回撤'},
+ {kw:['货币基金','债券基金','混合基金','股票基金','风险阶梯','按投资对象'],id:'risk_ladder',cap:'基金风险阶梯'},
+ {kw:['规模','明星经理','基金经理','任职'],id:'max_dd_fig',cap:'经理与回撤'},
+];
+const LEVEL_FIG={l1:'candle_anatomy',l2:'ma_cross',l3:'vol_bars',l4:'intraday_fig',l5:'sentiment_cycle',
+ l6:'macd_struct',l7:'fee_drag',l8:'stop_fig',l9:'z_breakout',
+ l10:'margin_lever',l11:'crypto_vol',l12:'nav_line'};
+function qFigFor(q){
+  if(q.p&&typeof PATTERNS!=='undefined'&&PATTERNS[q.p])return {kind:'pat',id:q.p,cap:'形态对照'};
+  const ck=(typeof conceptKeyOf==='function')?conceptKeyOf(q.q||''):null;
+  if(ck&&LSN_FIGS.CONCEPT_FIGS[ck])return {kind:'concept',id:ck,cap:'本题概念图示'};
+  if(Array.isArray(q.o)){
+    for(const o of q.o){ const pk=(typeof patternKeyOf==='function')?patternKeyOf(o):null;
+      if(pk&&PATTERNS[pk])return {kind:'pat',id:pk,cap:'选项形态对照'};
+      const k2=(typeof conceptKeyOf==='function')?conceptKeyOf(o):null;
+      if(k2&&LSN_FIGS.CONCEPT_FIGS[k2])return {kind:'concept',id:k2,cap:'选项概念图示'}; } }
+  const hay=[q.q||''].concat(Array.isArray(q.o)?q.o:[]).join(' ');
+  for(const e of QFIG_KW){ if(e.kw.some(w=>hay.indexOf(w)>=0))return {kind:'concept',id:e.id,cap:e.cap||'主题示意'}; }
+  const d=LEVEL_FIG[q.lvl];
+  if(d&&LSN_FIGS[d])return {kind:'fig',id:d,cap:'本关主题示意'};
+  if(d&&LSN_FIGS.CONCEPT_FIGS[d])return {kind:'concept',id:d,cap:'本关主题示意'};
+  return null;
+}
+function drawQFigs(root){
+  root.querySelectorAll('canvas[data-qfig]').forEach(cv=>{
+    const parts=cv.dataset.qfig.split(':');
+    if(parts[0]==='pat'&&PATTERNS[parts[1]])
+      renderPattern(cv,PATTERNS[parts[1]].candles,116,PATTERNS[parts[1]].xl||null,PATTERNS[parts[1]].ma);
+    else if(parts[0]==='concept'&&LSN_FIGS.CONCEPT_FIGS[parts[1]]&&LSN_FIGS.CONCEPT_FIGS[parts[1]].draw)
+      LSN_FIGS.CONCEPT_FIGS[parts[1]].draw(cv);
+    else if(parts[0]==='fig'&&LSN_FIGS[parts[1]])
+      LSN_FIGS[parts[1]].draw(cv);
+  });
+}
 
 /* 课件配图映射（id → 配图数组；pat:复用形态图鉴，fig:自绘） */
 const LESSON_FIG_MAP={
@@ -6606,6 +6840,21 @@ PAGE.render.home=function(){
     <div class="t2" style="font-size:.7rem;margin-top:6px">课程完成度 ${lessonDone()}/${CUR.flat.length} 课 · 结业后晋升「盘感大师」</div>
   </div>
 
+  ${(()=>{ let nxt=null,nlv=null;
+    for(const lv of CUR.levels){ for(const ls of lv.lessons){ if(!(S.lessons[ls.id]&&S.lessons[ls.id].done)){ nxt=ls; nlv=lv; break; } } if(nxt)break; }
+    if(!nxt)return `<div class="card"><h3>🎓 12 关课程全部完成</h3>
+      <div class="t2" style="font-size:.76rem">去考结业试，或到「训练」页多品种专区持续练盘感</div>
+      <button class="btn block" style="margin-top:8px" onclick="go('academy')">进入学院</button></div>`;
+    const pct=Math.round(nlv.lessons.filter(l=>S.lessons[l.id]&&S.lessons[l.id].done).length/nlv.count*100);
+    return `<div class="card"><h3>🎓 先学干货 · ${esc(nlv.n)}</h3>
+      <div class="t2" style="font-size:.78rem;margin-bottom:6px">下一课：<b>${esc(nxt.t)}</b></div>
+      <div class="row" style="margin:6px 0"><div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+      <span class="t2 num" style="font-size:.66rem">本关 ${pct}%</span></div>
+      <div class="row" style="margin-top:8px">
+        <button class="btn" style="flex:1" onclick="go('academy');viewLesson('${nxt.id}')">▶ 继续学习</button>
+        <button class="btn gray" style="flex:1" onclick="go('academy')">🗺 课程地图</button></div>
+      <div class="t2" style="font-size:.66rem;margin-top:6px">学习顺序：先把干货学完 → 再去「练习/训练」巩固。期货·币·基金在 10-12 关。</div></div>`; })()}
+
   ${!cloudOn()?`
   <div class="card"><h3>☁️ 云同步 · 名字 + 密码</h3>
     <div class="t2" style="font-size:.74rem;line-height:1.6">设好后手机/电脑进度自动互通（AES加密上云、多人各自独立、换设备秒找回）</div>
@@ -6617,17 +6866,25 @@ PAGE.render.home=function(){
     <div class="t2 warn" style="font-size:.66rem;margin-top:6px" id="hcMsg"></div>
   </div>`:''}
 
-  <div class="card"><h3>✅ 今日任务</h3>
+  <div class="card"><h3>✅ 今日任务 <span class="t2" style="font-size:.64rem">先复习旧干货 → 再练新题</span></h3>
+    <div class="list-item clickable" onclick="go('academy','review')"><div class="li-main"><b>🔁 FSRS 复习</b> <span class="t2" style="font-size:.72rem">遗忘曲线到期的课程（学过≠记住）</span></div>
+      <span class="chip ${dueCnt?'purple':'gray'}">${dueCnt} 节</span></div>
     <div class="list-item clickable" onclick="go('drill')"><div class="li-main"><b>📝 每日一练</b> <span class="t2" style="font-size:.72rem">10道题保持手感</span></div>
       <span class="chip ${daily.done>=daily.target?'down':'info'}">${daily.done}/${daily.target}</span></div>
     <div class="list-item clickable" onclick="go('train')"><div class="li-main"><b>🎯 盘感训练场</b> <span class="t2" style="font-size:.72rem">回放猜涨跌 · 累计练出真盘感</span></div>
       <span class="chip ${trainToday>=3?'down':'gold'}">${trainToday}/3 题</span></div>
-    <div class="list-item clickable" onclick="go('academy','review')"><div class="li-main"><b>🔁 FSRS 复习</b> <span class="t2" style="font-size:.72rem">遗忘曲线到期的课程</span></div>
-      <span class="chip ${dueCnt?'purple':'gray'}">${dueCnt} 节</span></div>
     <div class="list-item clickable" onclick="go('drill','journal')"><div class="li-main"><b>📔 复盘日记</b> <span class="t2" style="font-size:.72rem">收盘后5分钟，盘感靠堆复盘</span></div>
       <span class="chip ${S.journal[t]?'down':'gray'}">${S.journal[t]?'已写':'待写'}</span></div>
     ${!cloudOn()?`<div class="list-item clickable" onclick="openCloudLogin()"><div class="li-main"><b>☁️ 开通云同步</b> <span class="t2" style="font-size:.72rem">名字+密码，手机电脑进度互通·加密存储</span></div><span class="chip gold">推荐</span></div>`:''}
   </div>
+
+  <div class="card"><h3>🌍 多品种专区 <span class="t2" style="font-size:.64rem">期货 · 加密货币 · 基金 专门练习</span></h3>
+    <div class="grid3">
+      <div class="stat clickable" onclick="quickTrain('fut','A')"><div class="v">🏭</div><div class="k">期货<br>猜明天</div></div>
+      <div class="stat clickable" onclick="quickTrain('crypto','A')"><div class="v">🪙</div><div class="k">加密货币<br>猜明天</div></div>
+      <div class="stat clickable" onclick="quickTrain('fund','A')"><div class="v">🏦</div><div class="k">基金<br>净值趋势</div></div>
+    </div>
+    <div class="t2" style="font-size:.66rem;margin-top:8px;text-align:center">更多玩法（关键位/量价）在「训练」页的多品种专区</div></div>
 
   <div class="card clickable" onclick="go('mood')"><h3>🌡️ 市场情绪</h3><div id="homeSent">
     ${sent?`<div class="row between"><div><span class="stage-big ${STAGE_META[sent.stage].cls}">${STAGE_META[sent.stage].n}</span>
@@ -6896,7 +7153,8 @@ function runExam(cfg){
     const st={tag:'考试'};
     cont.innerHTML=qHtml(q,cur,cfg.questions.length,q.id,st);
     window._examOpts=q.t==='j'?2:(Array.isArray(q.o)?q.o.length:0);
-    if(q.t==='c'&&q.p&&PATTERNS[q.p]){ renderPattern($('canvas',cont),PATTERNS[q.p].candles,110,null,PATTERNS[q.p].ma); }
+    if(typeof drawQFigs==='function')drawQFigs(cont);
+    else if(q.t==='c'&&q.p&&PATTERNS[q.p]){ renderPattern($('canvas',cont),PATTERNS[q.p].candles,110,null,PATTERNS[q.p].ma); }
     const card=$('.q-card',cont);
     bindQCard(card,q,right=>{ answers[cur]=right; cur++; saveState(); if(cur>=cfg.questions.length){ finish(); } else render(); });
     $('#examSubmit').addEventListener('click',()=>{
@@ -7302,8 +7560,19 @@ function renderTrainPicker(){
       ${(S.settings.asset||'stock')==='stock'?`<label class="f">出题池</label>
       <div class="seg" id="poolSeg"><button class="${S.settings.pool!=='watch'?'on':''}" data-p="all">热门白名单（64只）</button>
       <button class="${S.settings.pool==='watch'?'on':''}" data-p="watch">我的自选（${S.watch.length}只）</button></div>`:''}</div>
+    <div class="card" style="margin-top:10px"><h3>🌍 多品种专区 <span class="t2" style="font-size:.64rem">期货·加密货币·基金 专门练习（点玩法直接开）</span></h3>
+      <div class="train-pick">
+        ${[['fut','🏭 期货(连续)',['A','B','D']],['crypto','🪙 加密货币',['A','B']],['fund','🏦 基金(净值)',['A']]].map(([k,n,ms])=>`
+        <div class="train-mode" style="background:var(--surface)">
+          <div class="em">${n.split('(')[0]}</div><b style="font-size:.78rem">${n.includes('(')?n.split('(')[1].replace(')',''):''}</b>
+          <div class="row wrap" style="justify-content:center;gap:4px;margin-top:6px">
+            ${ms.map(m=>`<span class="ctg clickable" style="font-size:.66rem" onclick="event.stopPropagation();quickTrain('${k}','${m}')">${MODE_META[m].icon}${MODE_META[m].n}</span>`).join('')}
+          </div></div>`).join('')}
+      </div>
+      <div class="t2" style="font-size:.66rem;margin-top:8px">基金为净值线形（无量能玩法）；期货/币为真实连续行情（接口失败自动示例数据）。配套课程：第 10-12 关。</div></div>
+    <div class="t2" style="font-size:.72rem;font-weight:600;margin:10px 0 6px">🇨🇳 A股训练场（品种选 A股）：</div>
     <div class="train-pick">${Object.entries(MODE_META).map(([k,m])=>`
-      <div class="train-mode ${k==='E'&&phase!=='post'?'':''}" onclick="startTraining('${k}')">
+      <div class="train-mode" onclick="startTraining('${k}')">
         <div class="em">${m.icon}</div><b>${m.n}</b><div class="t2">${m.desc}</div>
         ${k==='E'&&phase!=='post'?'<div class="t2 warn" style="font-size:.64rem;margin-top:4px">收盘后开放（可看昨天）</div>':''}
       </div>`).join('')}</div>
@@ -7328,6 +7597,7 @@ function kindOverride(kind){
   if(kind==='fut'||kind==='crypto')return {turn:false};
   return {};
 }
+function quickTrain(asset,mode){ S.settings.asset=asset; savePiece('settings'); go('train'); startTraining(mode); }
 function trainDiffNum(){ return S.settings.diff==='auto'?autoDiff():+S.settings.diff; }
 function diffChartOpts(){
   const l=trainDiffNum();
