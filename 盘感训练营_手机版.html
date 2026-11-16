@@ -3116,10 +3116,13 @@ class KChart{
           const x=X(i); const v=m.hist[i]/mm*(sh2/2-4);
           ctx.fillStyle=v>=0?upC:dnC; ctx.globalAlpha=.7; ctx.fillRect(x-cw*0.3,Math.min(midY,midY-v),Math.max(1.5,cw*0.6),Math.abs(v)); }
         ctx.globalAlpha=1;
-        ctx.strokeStyle=MA_COLORS[5]; ctx.beginPath(); let f1=true;
+        const GOLDc=css('--gold'),WHTc=css('--text');
+        ctx.strokeStyle=WHTc; ctx.beginPath(); let f1=true;
         for(let i=i0;i<Math.min(iEnd,this.o.hideAfter!=null?this.o.hideAfter+1:iEnd);i++){ const x=X(i),y=midY-m.dif[i]/mm*(sh2/2-4); f1?ctx.moveTo(x,y):ctx.lineTo(x,y); f1=false; } ctx.stroke();
-        ctx.strokeStyle=MA_COLORS[20]; ctx.beginPath(); let f2=true;
+        ctx.strokeStyle=GOLDc; ctx.beginPath(); let f2=true;
         for(let i=i0;i<Math.min(iEnd,this.o.hideAfter!=null?this.o.hideAfter+1:iEnd);i++){ const x=X(i),y=midY-m.dea[i]/mm*(sh2/2-4); f2?ctx.moveTo(x,y):ctx.lineTo(x,y); f2=false; } ctx.stroke();
+        ctx.fillStyle=WHTc; ctx.fillText('DIF白',4,y0+24);
+        ctx.fillStyle=GOLDc; ctx.fillText('DEA黄',4,y0+36);
         ctx.fillStyle=mutC; ctx.fillText('MACD',4,y0+10);
       }
     }
@@ -4410,10 +4413,14 @@ qs:[
 ]},
 { i:'l6', n:'第6关 · 技术指标', icon:'🧮', desc:'MACD、RSI、KDJ、BOLL：指标是价格的"导数"，先懂原理再用', lessons:[
 {id:'i01',t:'MACD的构成：DIF、DEA与柱',c:`<p><b>${termSpan('MACD')}</b>是最常用的趋势类指标，由三部分组成：</p>
-<ul><li><b>DIF（白线/快线）</b>：12日指数均线 − 26日指数均线——短期与长期动能的差值，反映<b>动能的方向与强弱</b></li>
-<li><b>DEA（黄线/慢线）</b>：DIF的9日平均——DIF的平滑版</li>
-<li><b>柱状线</b>：(DIF−DEA)×2——DIF与DEA的差距，柱子放大=动能增强，柱子缩短=动能减弱</li>
-<li>人话总结：MACD回答的问题是"上涨/下跌的<b>动能</b>是在增强还是衰竭"</li></ul>`,
+<ul><li><b>DIF（快线）</b>：12日指数均线 − 26日指数均线——两条均线的<b>差值</b>，反映动能的方向与强弱。价格一动，这个差值立刻变——所以叫<b>快线</b></li>
+<li><b>DEA（慢线）</b>：对 DIF 再做 9 日平均——把已经平滑过的差值<b>再平滑一次</b>，反应必然更慢</li>
+<li><b>柱状线</b>：(DIF−DEA)×2——柱子放大=动能增强，柱子缩短=动能减弱</li></ul>
+<div class="callout"><b>🎯 新手最容易绕晕的两点，一次讲清</b><br>
+① <b>颜色</b>：行情软件惯例把 DIF 画成白色、DEA 画成黄色——本App示意图沿用同样的白/黄配色，白线快、黄线慢。<br>
+② <b>为什么 DEA 是慢线？它不是"天数更多"</b>——快慢不看参数大小，看<b>谁对价格变化反应更快</b>。DIF 本身就是差值（价格一动立刻变）；DEA 是把这个差值再做 9 日平均——对已经算出来的东西再平滑一次，永远慢一步。比方说：DIF 是你的即时心情，DEA 是你最近 9 天的平均心情——后者更"迟钝"但也更稳定。<br>
+③ 快线的"快"与 12/26 这两个参数无关——12/26 是<b>构成 DIF 的两条均线的参数</b>，9 是平滑 DIF 的参数。</div>
+<p>人话总结：MACD回答的问题是"上涨/下跌的<b>动能</b>是在增强还是衰竭"</p>`,
 tip:'在指标实验室打开MACD副图，对着一段上涨行情观察：柱子最长的地方往往不是价格最高点——动能领先于价格。',
 qs:[
  {t:'s',q:'MACD中DIF的计算是？',o:['12日EMA−26日EMA','9日均线','收盘价的方差','成交量比值'],a:0,e:'DIF=12日指数均线−26日指数均线，衡量短长期动能差。'},
@@ -5828,7 +5835,7 @@ return {mountTrain,mountQuiz,quizAnswer,takeText,arm,reviewBlockHtml,bindExport,
    LSN_FIGS：自绘图（每幅 = {n:标题, draw(cv)}）；LESSON_FIG_MAP：课件id → 配图列表，
    条目 'fig:xxx' 引自绘图 / 'pat:xxx' 复用形态图鉴（22-patterns）。 */
 const LSN_FIGS=(()=>{
-const UP=()=>css('--up'),DN=()=>css('--down'),GOLD=()=>css('--gold'),INFO=()=>css('--info'),
+const UP=()=>css('--up'),DN=()=>css('--down'),GOLD=()=>css('--gold'),INFO=()=>css('--info'),WHT=()=>css('--text'),
   PUR=()=>css('--purple'),MUT=()=>css('--muted'),TXT=()=>css('--text2'),WARN=()=>css('--warn');
 /* --- 基元 --- */
 function line(ctx,pts,col,lw,dash){ctx.strokeStyle=col;ctx.lineWidth=lw||1.5;ctx.setLineDash(dash||[]);
@@ -6056,7 +6063,7 @@ const sentiment_cycle={n:'图解 · 情绪周期：四季轮回（冰点→回�
   text(ctx,w*0.66,88,'涨停潮·连板高',UP(),'center',8.5);}};
 
 /* --- 指标（第6关） --- */
-const macd_struct={n:'图解 · MACD三件套：DIF线、DEA线、红绿柱（下为副图）',draw(cv){const h=250;const {ctx,w}=setupCanvas(cv,h);
+const macd_struct={n:'图解 · MACD三件套：白线DIF、黄线DEA、红绿柱（行情软件惯例配色：白/黄）',draw(cv){const h=258;const {ctx,w}=setupCanvas(cv,h);
   const X=spanX(ctx,6,26,32);
   const Yp=yMap(28,70,18,100);
   pricePath(ctx,[30,36,44,52,60,68],X,Yp,TXT(),1.6);
@@ -6065,21 +6072,27 @@ const macd_struct={n:'图解 · MACD三件套：DIF线、DEA线、红绿柱（�
   line(ctx,[[20,zero],[w-24,zero]],MUT(),1,[4,3]);
   text(ctx,w-24,zero-5,'零轴',MUT(),'right',8.5);
   const dif=[-8,-2,6,14,20,22],dea=[-10,-6,0,8,14,18];
-  pricePath(ctx,dif,X,Ym,GOLD(),1.8);
-  pricePath(ctx,dea,X,Ym,PUR(),1.8);
+  pricePath(ctx,dif,X,Ym,WHT(),2);
+  pricePath(ctx,dea,X,Ym,GOLD(),1.8);
   vbars(ctx,dif.map((v,i)=>Math.abs(v-dea[i])*2),X,zero,40,i=>dif[i]>=dea[i]?UP():DN());
+  circle(ctx,X(3),Ym(14),14,WHT());
+  text(ctx,X(3)+14,Ym(14)-4,'白线＝DIF（快）',WHT(),'left',9,true);
+  text(ctx,X(3)+14,Ym(14)+8,'＝12日均线−26日均线',MUT(),'left',8.5);
+  circle(ctx,X(4),Ym(8),14,GOLD());
+  text(ctx,X(4)+14,Ym(8)+2,'黄线＝DEA（慢）',GOLD(),'left',9,true);
+  text(ctx,X(4)+14,Ym(8)+16,'＝对白线再做9日平均',MUT(),'left',8.5);
   text(ctx,12,128,'MACD（副图）',TXT(),'left',9.5,true);
-  text(ctx,20,242,'— DIF（快）',GOLD(),'left',9,true);
-  text(ctx,w*0.35,242,'— DEA（慢）',PUR(),'left',9,true);
-  text(ctx,w*0.6,242,'▌柱：DIF-DEA 的2倍＝动能',MUT(),'left',9);}};
+  text(ctx,20,242,'— 白线DIF（快）',WHT(),'left',9,true);
+  text(ctx,w*0.32,242,'— 黄线DEA（慢）',GOLD(),'left',9,true);
+  text(ctx,w*0.62,242,'▌柱：DIF-DEA 的2倍＝动能',MUT(),'left',9);}};
 const macd_cross={n:'图解 · 零上金叉 vs 零下金叉：位置决定成色',draw(cv){const h=225;const {ctx,w}=setupCanvas(cv,h);
   const X=spanX(ctx,9,24,30);
   const zero=118,Ym=v=>zero-v*3.4;
   line(ctx,[[18,zero],[w-22,zero]],MUT(),1,[4,3]);
   text(ctx,w-22,zero-5,'零轴',MUT(),'right',8.5);
   const dif=[-14,-10,-4,4,10,13,11,9,13,17],dea=[-16,-13,-8,-1,5,10,12,10,11,13];
-  pricePath(ctx,dif,X,Ym,GOLD(),1.8);
-  pricePath(ctx,dea,X,Ym,PUR(),1.8);
+  pricePath(ctx,dif,X,Ym,WHT(),1.8);
+  pricePath(ctx,dea,X,Ym,GOLD(),1.8);
   circle(ctx,X(2)+(X(3)-X(2))*0.5,Ym(-3),14,MUT());
   circle(ctx,X(7)+(X(8)-X(7))*0.5,Ym(10),14,UP());
   text(ctx,X(2)+(X(3)-X(2))*0.5,Ym(-3)+34,'零下金叉＝反弹·弱',MUT(),'center',9,true);
@@ -6095,8 +6108,8 @@ const macd_div={n:'图解 · 顶背离：价格新高，红柱却变矮＝动能
   const zero=204,Ym=v=>zero-v*3.2;
   line(ctx,[[18,zero],[w-24,zero]],MUT(),1,[4,3]);
   const dif=[4,14,20,12,16,18,14],dea=[2,9,16,13,15,17,15];
-  pricePath(ctx,dif,X,Ym,GOLD(),1.6);
-  pricePath(ctx,dea,X,Ym,PUR(),1.6);
+  pricePath(ctx,dif,X,Ym,WHT(),1.6);
+  pricePath(ctx,dea,X,Ym,GOLD(),1.6);
   vbars(ctx,dif.map((v,i)=>Math.max(0,(dif[i]-dea[i])*2)),X,zero,34,i=>UP());
   line(ctx,[[X(2),Ym(20)-6],[X(6),Ym(16)-6]],GOLD(),1.4,[3,2]);
   text(ctx,X(4),Ym(22)-8,'② 红柱峰值却变矮＝动能降',GOLD(),'center',9.5,true);
@@ -6308,6 +6321,47 @@ const CONCEPT_FIGS={
    text(ctx,bx+2,by-8,'流通股本（全部可交易的筹码）',TXT(),'left',9,true);
    text(ctx,bx+hot+8,by+bh/2+4,'← 今日换手 18%：这部分筹码换了主人',GOLD(),'left',9,true);
    text(ctx,w*0.5,116,'换手率＝当日成交量÷流通股本×100%（小盘股同样的量，换手率更高）',MUT(),'center',9);}},
+ limit_board:{n:'涨跌停板',d:'A股单日最大涨跌限制：主板±10%、创业板/科创板±20%、北交所±30%、主板ST±5%；新股上市前5日不设限制。涨停价上挂着巨量买单（封单）＝想买的人排队却买不到。',draw(cv){const h=190;const {ctx,w}=setupCanvas(cv,h);
+   const rows=[['主板','±10%','#f0524f'],['创业板/科创板','±20%','#e8b339'],['北交所','±30%','#519bff'],['主板ST','±5%','#9aa7b6']];
+   const bx=14,bw=w-28-64;
+   rows.forEach((r,i)=>{ const y=18+i*34;
+     text(ctx,bx,y+16,r[0],TXT(),'left',9.5,true);
+     const fw=(parseFloat(r[1].replace('±','').replace('%',''))/30)*(bw-70);
+     ctx.fillStyle=r[2];ctx.fillRect(bx+56,y+4,Math.max(10,fw),20);
+     text(ctx,bx+62+Math.max(10,fw),y+18,r[1],r[2],'left',9.5,true);});
+   text(ctx,bx+w-70-6,158,'涨停价上：巨量买单排队＝封单',UP(),'right',9,true);
+   text(ctx,w*0.5,178,'涨停=需求被冻结（次日溢价来源）；封单被砸开＝炸板',MUT(),'center',9);}},
+ cost_stack:{n:'一笔交易的成本构成',d:'一买一卖合计约0.1%~0.15%：佣金（双边，约万2.5，多数券商单笔最低5元）＋印花税（只卖方收0.05%，单项最大）＋过户费（0.001%）。日频交易一年成本可达本金25%+。',draw(cv){const h=180;const {ctx,w}=setupCanvas(cv,h);
+   const items=[['佣金（双边）','#519bff',18],['印花税（仅卖出）','#f0524f',62],['过户费','#e8b339',4]];
+   const bx=14,bw=w-28;let y=30;
+   text(ctx,14,18,'按 10万元 一笔卖出交易拆解：',TXT(),'left',9.5,true);
+   items.forEach(it=>{ const hgt=it[2]*1.6;
+     ctx.fillStyle=it[1];ctx.fillRect(bx,y,bw,hgt);
+     text(ctx,bx+8,y+hgt/2+4,it[0]+' ≈ '+it[2]+'元',TXT(),'left',9,true);
+     y+=hgt+6;});
+   text(ctx,bx,158,'合计约 92 元 ≈ 本金的 0.092% —— 看似小，每天进出一次，一年 ≈ 23%',GOLD(),'left',9,true);
+   text(ctx,w*0.5,174,'频率才是成本的总开关（第7关第2课）',MUT(),'center',9);}},
+ auction_t1:{n:'集合竞价时间轴',d:'9:15-9:20 可挂单可撤单（假单多）；9:20-9:25 只能挂不能撤（这段才真实）；9:25 撮合出开盘价；9:25-9:30 可挂不撮合。',draw(cv){const h=170;const {ctx,w}=setupCanvas(cv,h);
+   const x0=16,x1=w*0.38,x2=w*0.62,x3=w*0.86;
+   line(ctx,[[x0,80],[x3,80]],MUT(),2);
+   [[x0,'9:15'],[x1,'9:20'],[x2,'9:25'],[x3,'9:30']].forEach(p=>{ ctx.fillStyle=css('--text');
+     ctx.beginPath();ctx.arc(p[0],80,5,0,7);ctx.fill();
+     text(ctx,p[0],64,p[1],TXT(),'center',9.5,true);});
+   text(ctx,(x0+x1)/2,104,'可挂可撤',WARN(),'center',9,true);
+   text(ctx,(x0+x1)/2,118,'（假单高发区）',MUT(),'center',8.5);
+   text(ctx,(x1+x2)/2,104,'只挂不撤',DN(),'center',9,true);
+   text(ctx,(x1+x2)/2,118,'（量价最真实）',DN(),'center',8.5);
+   text(ctx,(x2+x3)/2,104,'撮合开盘价',GOLD(),'center',9,true);
+   text(ctx,w*0.5,150,'判断开盘强度：只看 9:20-9:25 的竞价价量——前面可撤时段的大单别信',MUT(),'center',9);}},
+ t1_rule:{n:'T+1 制度',d:'当天买入的股票次一交易日才能卖出；卖出所得资金当天可继续使用。买入当天无法止损＝每笔买入自带隔夜风险。',draw(cv){const h=170;const {ctx,w}=setupCanvas(cv,h);
+   const bx=14,bw=(w-40)/2;
+   [[bx,'今天','买入 🔒','当日不可卖（隔夜风险）',css('--surface3'),TXT()],[bx+bw+12,'明天','可卖出','止损/止盈今天才能执行',css('--info-bg'),DN()]].forEach((b,i)=>{
+     ctx.fillStyle=css('--surface3');ctx.fillRect(b[0],44,bw,74);
+     text(ctx,b[0]+bw/2,66,b[1],MUT(),'center',9,true);
+     text(ctx,b[0]+bw/2,88,b[2],TXT(),'center',10,true);
+     text(ctx,b[0]+bw/2,106,b[3],MUT(),'center',8.5);});
+   arrow(ctx,bx+bw+2,80,bx+bw+10,80,GOLD());
+   text(ctx,w*0.5,150,'T+1 意味着：买入决策必须比卖出更慎重——上车之前先想好下车点',MUT(),'center',9);}},
 };
 /* 选项文本 → 概念图示（死叉先于金叉判断） */
 function conceptKeyOf(t){
@@ -6516,6 +6570,19 @@ return {
 
 /* ================= 全题图形辅助（v1.4）：每道题至少配一幅图 ================= */
 const QFIG_KW=[
+ {kw:['涨跌幅限制','涨跌停板','涨跌停制度','主板ST','封单'],kind:'concept',id:'limit_board',cap:'涨跌停制度'},
+ {kw:['炸板','打板','连板','涨停潮'],kind:'concept',id:'limit_board',cap:'涨停生态'},
+ {kw:['佣金','印花税','过户费','交易成本','最低5元','成本构成'],kind:'concept',id:'cost_stack',cap:'交易成本构成'},
+ {kw:['集合竞价','9:15','9:20','9:25','开盘价产生'],kind:'concept',id:'auction_t1',cap:'集合竞价时间轴'},
+ {kw:['T+1','隔夜风险','次日才能卖'],kind:'concept',id:'t1_rule',cap:'T+1制度'},
+ {kw:['止损位','机械止损','止损单','跌破支撑位就'],kind:'fig',id:'stop_fig',cap:'止损示意'},
+ {kw:['盈亏比','赚小亏大','2:1'],kind:'fig',id:'rr_fig',cap:'盈亏比'},
+ {kw:['分时图','均价线','分时线'],kind:'fig',id:'intraday_fig',cap:'分时图'},
+ {kw:['MACD','DIF','DEA','零轴'],kind:'fig',id:'macd_struct',cap:'MACD构成'},
+ {kw:['布林','BOLL','收口','开口','轨道'],kind:'fig',id:'boll_fig',cap:'布林带'},
+ {kw:['突破箱体','横盘启动','放量突破'],kind:'fig',id:'z_breakout',cap:'低位突破'},
+ {kw:['出货','天量','派发','上影阴线'],kind:'fig',id:'z_topvol',cap:'高位出货'},
+ {kw:['情绪周期','冰点','回暖','高潮期','退潮期','涨停潮'],kind:'fig',id:'sentiment_cycle',cap:'情绪周期四季'},
  {kw:['爆仓','强平','追加保证金','当日结算','盯市'],id:'mtm_loss',cap:'逐日盯市与强平'},
  {kw:['保证金','杠杆','押金'],id:'margin_lever',cap:'保证金与杠杆'},
  {kw:['做空','做多','双向','先卖后买','买涨','卖跌'],id:'long_short',cap:'双向交易'},
@@ -6548,10 +6615,10 @@ function qFigFor(q){
       const k2=(typeof conceptKeyOf==='function')?conceptKeyOf(o):null;
       if(k2&&LSN_FIGS.CONCEPT_FIGS[k2])return {kind:'concept',id:k2,cap:'选项概念图示'}; } }
   const hay=[q.q||''].concat(Array.isArray(q.o)?q.o:[]).join(' ');
-  for(const e of QFIG_KW){ if(e.kw.some(w=>hay.indexOf(w)>=0))return {kind:'concept',id:e.id,cap:e.cap||'主题示意'}; }
+  for(const e of QFIG_KW){ if(e.kw.some(w=>hay.indexOf(w)>=0))return {kind:e.kind||'concept',id:e.id,cap:e.cap||'主题示意'}; }
   const d=LEVEL_FIG[q.lvl];
-  if(d&&LSN_FIGS[d])return {kind:'fig',id:d,cap:'本关主题示意'};
-  if(d&&LSN_FIGS.CONCEPT_FIGS[d])return {kind:'concept',id:d,cap:'本关主题示意'};
+  if(d&&LSN_FIGS[d])return {kind:'fig',id:d,cap:'本关主题示意 · 供复习参考'};
+  if(d&&LSN_FIGS.CONCEPT_FIGS[d])return {kind:'concept',id:d,cap:'本关主题示意 · 供复习参考'};
   return null;
 }
 function drawQFigs(root){
