@@ -3116,13 +3116,15 @@ class KChart{
           const x=X(i); const v=m.hist[i]/mm*(sh2/2-4);
           ctx.fillStyle=v>=0?upC:dnC; ctx.globalAlpha=.7; ctx.fillRect(x-cw*0.3,Math.min(midY,midY-v),Math.max(1.5,cw*0.6),Math.abs(v)); }
         ctx.globalAlpha=1;
-        const GOLDc=css('--gold'),WHTc=css('--text');
+        /* MACD副图深色底：白DIF/黄DEA与行情软件一致，深浅主题都看得清 */
+        ctx.fillStyle='#101720'; ctx.fillRect(0,y0-2,w-axW,subH-(this.o.turn||this.o.macd?0:0));
+        const GOLDc=css('--gold'),WHTc='#f2f6fa';
         ctx.strokeStyle=WHTc; ctx.beginPath(); let f1=true;
         for(let i=i0;i<Math.min(iEnd,this.o.hideAfter!=null?this.o.hideAfter+1:iEnd);i++){ const x=X(i),y=midY-m.dif[i]/mm*(sh2/2-4); f1?ctx.moveTo(x,y):ctx.lineTo(x,y); f1=false; } ctx.stroke();
         ctx.strokeStyle=GOLDc; ctx.beginPath(); let f2=true;
         for(let i=i0;i<Math.min(iEnd,this.o.hideAfter!=null?this.o.hideAfter+1:iEnd);i++){ const x=X(i),y=midY-m.dea[i]/mm*(sh2/2-4); f2?ctx.moveTo(x,y):ctx.lineTo(x,y); f2=false; } ctx.stroke();
-        ctx.fillStyle=WHTc; ctx.fillText('DIF白',4,y0+24);
-        ctx.fillStyle=GOLDc; ctx.fillText('DEA黄',4,y0+36);
+        ctx.fillStyle='#f2f6fa'; ctx.fillText('DIF白',4,y0+22);
+        ctx.fillStyle='#e8b339'; ctx.fillText('DEA黄',4,y0+34);
         ctx.fillStyle=mutC; ctx.fillText('MACD',4,y0+10);
       }
     }
@@ -4420,7 +4422,11 @@ qs:[
 ① <b>颜色</b>：行情软件惯例把 DIF 画成白色、DEA 画成黄色——本App示意图沿用同样的白/黄配色，白线快、黄线慢。<br>
 ② <b>为什么 DEA 是慢线？它不是"天数更多"</b>——快慢不看参数大小，看<b>谁对价格变化反应更快</b>。DIF 本身就是差值（价格一动立刻变）；DEA 是把这个差值再做 9 日平均——对已经算出来的东西再平滑一次，永远慢一步。比方说：DIF 是你的即时心情，DEA 是你最近 9 天的平均心情——后者更"迟钝"但也更稳定。<br>
 ③ 快线的"快"与 12/26 这两个参数无关——12/26 是<b>构成 DIF 的两条均线的参数</b>，9 是平滑 DIF 的参数。</div>
-<p>人话总结：MACD回答的问题是"上涨/下跌的<b>动能</b>是在增强还是衰竭"</p>`,
+<p>人话总结：MACD回答的问题是"上涨/下跌的<b>动能</b>是在增强还是衰竭"</p>
+<div class="callout">🔍 <b>三步看懂下面的示意图</b>：<br>
+① 上栏<b>价格主图</b>：先看股价走势本身；<br>
+② 下栏<b>MACD副图</b>（深色底，和行情软件长得一样）：先看<b>红绿柱</b>——变长=动能增强、缩短=动能衰竭；<br>
+③ 副图里<b>白线DIF贴着价格走</b>（它就是两条均线的差值）、<b>黄线DEA更平滑更慢</b>（对白线再平均）——白线上穿/下穿黄线就是金叉/死叉。</div>`,
 tip:'在指标实验室打开MACD副图，对着一段上涨行情观察：柱子最长的地方往往不是价格最高点——动能领先于价格。',
 qs:[
  {t:'s',q:'MACD中DIF的计算是？',o:['12日EMA−26日EMA','9日均线','收盘价的方差','成交量比值'],a:0,e:'DIF=12日指数均线−26日指数均线，衡量短长期动能差。'},
@@ -6063,57 +6069,64 @@ const sentiment_cycle={n:'图解 · 情绪周期：四季轮回（冰点→回�
   text(ctx,w*0.66,88,'涨停潮·连板高',UP(),'center',8.5);}};
 
 /* --- 指标（第6关） --- */
-const macd_struct={n:'图解 · MACD三件套：白线DIF、黄线DEA、红绿柱（行情软件惯例配色：白/黄）',draw(cv){const h=258;const {ctx,w}=setupCanvas(cv,h);
-  const X=spanX(ctx,6,26,32);
-  const Yp=yMap(28,70,18,100);
-  pricePath(ctx,[30,36,44,52,60,68],X,Yp,TXT(),1.6);
-  text(ctx,12,14,'价格（主图）',TXT(),'left',9.5,true);
-  const zero=178,Ym=v=>zero-(v+14)/30*110;
-  line(ctx,[[20,zero],[w-24,zero]],MUT(),1,[4,3]);
-  text(ctx,w-24,zero-5,'零轴',MUT(),'right',8.5);
-  const dif=[-8,-2,6,14,20,22],dea=[-10,-6,0,8,14,18];
-  pricePath(ctx,dif,X,Ym,WHT(),2);
-  pricePath(ctx,dea,X,Ym,GOLD(),1.8);
-  vbars(ctx,dif.map((v,i)=>Math.abs(v-dea[i])*2),X,zero,40,i=>dif[i]>=dea[i]?UP():DN());
-  circle(ctx,X(3),Ym(14),14,WHT());
-  text(ctx,X(3)+14,Ym(14)-4,'白线＝DIF（快）',WHT(),'left',9,true);
-  text(ctx,X(3)+14,Ym(14)+8,'＝12日均线−26日均线',MUT(),'left',8.5);
-  circle(ctx,X(4),Ym(8),14,GOLD());
-  text(ctx,X(4)+14,Ym(8)+2,'黄线＝DEA（慢）',GOLD(),'left',9,true);
-  text(ctx,X(4)+14,Ym(8)+16,'＝对白线再做9日平均',MUT(),'left',8.5);
-  text(ctx,12,128,'MACD（副图）',TXT(),'left',9.5,true);
-  text(ctx,20,242,'— 白线DIF（快）',WHT(),'left',9,true);
-  text(ctx,w*0.32,242,'— 黄线DEA（慢）',GOLD(),'left',9,true);
-  text(ctx,w*0.62,242,'▌柱：DIF-DEA 的2倍＝动能',MUT(),'left',9);}};
-const macd_cross={n:'图解 · 零上金叉 vs 零下金叉：位置决定成色',draw(cv){const h=225;const {ctx,w}=setupCanvas(cv,h);
-  const X=spanX(ctx,9,24,30);
-  const zero=118,Ym=v=>zero-v*3.4;
-  line(ctx,[[18,zero],[w-22,zero]],MUT(),1,[4,3]);
-  text(ctx,w-22,zero-5,'零轴',MUT(),'right',8.5);
+const macd_struct={n:'图解 · MACD三件套（上：价格主图；下：MACD副图——白线DIF、黄线DEA、红绿柱）',draw(cv){const h=330;const {ctx,w}=setupCanvas(cv,h);
+  const X=spanX(ctx,9,26,46);
+  /* 上：价格主图 */
+  const Yp=yMap(30,72,20,96);
+  pricePath(ctx,[30,35,32,41,38,48,44,56],X,Yp,TXT(),1.6);
+  text(ctx,12,14,'① 价格主图（走势本身）',TXT(),'left',9.5,true);
+  /* 下：MACD副图（深色底＝行情软件同款，白线黄线看得清） */
+  const mt=136,mb=296;
+  ctx.fillStyle='#101821';ctx.fillRect(10,mt,w-20,mb-mt);
+  text(ctx,14,mt-6,'② MACD副图（动能仪表盘）',MUT(),'left',9,true);
+  const zero=(mt+mb)/2+6, Ym=v=>mt+12+(18-v)*4.2;
+  const DTX='#dfe7f0', DGD='#e8b339', DWH='#f2f6fa';
+  line(ctx,[[14,zero],[w-18,zero]],'#3a4756',1,[3,3]);
+  text(ctx,w-20,zero-5,'零轴',DTX,'right',8.5);
+  const dif=[-9,-4,2,8,13,16,18],dea=[-12,-8,-3,2,7,11,14];
+  const sb=(v,i)=>{const b=(v-dea[i])*2*3;const x=X(i);
+    ctx.fillStyle=b>=0?'#f0524f':'#33b077';ctx.fillRect(x-5,Math.min(zero,zero-b),9,Math.abs(b));};
+  dif.forEach((v,i)=>sb(v,i));
+  pricePath(ctx,dif,X,Ym,DWH,2);
+  pricePath(ctx,dea,X,Ym,DGD,2);
+  text(ctx,X(6)+6,Ym(18)-6,'白线＝DIF（快）',DWH,'left',9,true);
+  text(ctx,X(6)+6,Ym(14)+18,'黄线＝DEA（慢）',DGD,'left',9,true);
+  text(ctx,16,mb-10,'柱子：变长＝动能增强，缩短＝动能衰竭',DTX,'left',9);
+  /* 三步看图 */
+  text(ctx,14,312,'🔍 三步看懂：① 看柱（动能强弱）→ ② 看两线交叉（方向转折）→ ③ 看零轴上下（多空环境）',GOLD(),'left',9,true);}};
+const macd_cross={n:'图解 · MACD金叉/死叉：白线上穿/下穿黄线；零轴位置定成色',draw(cv){const h=235;const {ctx,w}=setupCanvas(cv,h);
+  ctx.fillStyle='#101821';ctx.fillRect(0,0,w,h);
+  const X=spanX(ctx,10,24,74);
+  const zero=112,Ym=v=>zero-v*3.4,DTX='#dfe7f0',DWH='#f2f6fa',DGD='#e8b339';
+  line(ctx,[[14,zero],[w-16,zero]],'#3a4756',1,[4,3]);
+  text(ctx,w-18,zero-6,'零轴',DTX,'right',8.5);
   const dif=[-14,-10,-4,4,10,13,11,9,13,17],dea=[-16,-13,-8,-1,5,10,12,10,11,13];
-  pricePath(ctx,dif,X,Ym,WHT(),1.8);
-  pricePath(ctx,dea,X,Ym,GOLD(),1.8);
-  circle(ctx,X(2)+(X(3)-X(2))*0.5,Ym(-3),14,MUT());
-  circle(ctx,X(7)+(X(8)-X(7))*0.5,Ym(10),14,UP());
-  text(ctx,X(2)+(X(3)-X(2))*0.5,Ym(-3)+34,'零下金叉＝反弹·弱',MUT(),'center',9,true);
-  text(ctx,X(7)+(X(8)-X(7))*0.5,Ym(10)+30,'零上金叉＝多头环境·强',UP(),'center',9,true);
-  text(ctx,w*0.5,214,'金叉在零轴上方才可信；零轴下的金叉多是下跌中的反弹（第6关第2课）',MUT(),'center',9);}};
-const macd_div={n:'图解 · 顶背离：价格新高，红柱却变矮＝动能衰减',draw(cv){const h=268;const {ctx,w}=setupCanvas(cv,h);
-  const X=spanX(ctx,7,26,32);
+  pricePath(ctx,dif,X,Ym,DWH,1.8);
+  pricePath(ctx,dea,X,Ym,DGD,1.8);
+  circle(ctx,X(2)+(X(3)-X(2))*0.5,Ym(-3),14,'#ffe08a');
+  circle(ctx,X(7)+(X(8)-X(7))*0.5,Ym(10),14,'#ff9d8a');
+  text(ctx,X(2)+(X(3)-X(2))*0.5,Ym(-3)+34,'零下金叉＝反弹·弱',DTX,'center',9,true);
+  text(ctx,X(7)+(X(8)-X(7))*0.5,Ym(10)+30,'零上金叉＝多头环境·强',DTX,'center',9,true);
+  text(ctx,16,224,'— 白线DIF（快）',DWH,'left',9,true);
+  text(ctx,w*0.34,224,'— 黄线DEA（慢）',DGD,'left',9,true);
+  text(ctx,w*0.5,146,'行情软件同款配色：白线=快线DIF，黄线=慢线DEA',DTX,'center',8.5);}};
+const macd_div={n:'图解 · 顶背离：价格创新高，MACD红柱却变矮＝动能衰减',draw(cv){const h=300;const {ctx,w}=setupCanvas(cv,h);
+  const X=spanX(ctx,7,26,38);
   const Yp=yMap(26,74,16,104);
   const px=[30,42,52,44,58,52,68];
   pricePath(ctx,px,X,Yp,TXT(),1.8);
   line(ctx,[[X(2),Yp(52)],[X(6),Yp(68)]],UP(),1.4,[3,2]);
-  text(ctx,X(4),Yp(68)-10,'① 价格：新高（虚线抬升）',UP(),'center',9.5,true);
-  const zero=204,Ym=v=>zero-v*3.2;
-  line(ctx,[[18,zero],[w-24,zero]],MUT(),1,[4,3]);
+  text(ctx,X(4),Yp(68)-10,'① 上栏：价格创新高',UP(),'center',9.5,true);
+  ctx.fillStyle='#101821';ctx.fillRect(10,116,w-20,116);
+  const zero=172,Ym=v=>zero-v*3.0,DTX='#dfe7f0';
+  line(ctx,[[14,zero],[w-16,zero]],'#3a4756',1,[3,3]);
   const dif=[4,14,20,12,16,18,14],dea=[2,9,16,13,15,17,15];
-  pricePath(ctx,dif,X,Ym,WHT(),1.6);
-  pricePath(ctx,dea,X,Ym,GOLD(),1.6);
-  vbars(ctx,dif.map((v,i)=>Math.max(0,(dif[i]-dea[i])*2)),X,zero,34,i=>UP());
+  pricePath(ctx,dif,X,Ym,'#f2f6fa',1.6);
+  pricePath(ctx,dea,X,Ym,'#e8b339',1.6);
+  vbars(ctx,dif.map((v,i)=>Math.max(0,(dif[i]-dea[i])*2)),X,zero,30,i=>UP());
   line(ctx,[[X(2),Ym(20)-6],[X(6),Ym(16)-6]],GOLD(),1.4,[3,2]);
-  text(ctx,X(4),Ym(22)-8,'② 红柱峰值却变矮＝动能降',GOLD(),'center',9.5,true);
-  text(ctx,w*0.5,254,'两个「高点」连线方向相反＝顶背离。是风险警示，不等于立即下跌',MUT(),'center',9);}};
+  text(ctx,X(4),Ym(22)-8,'② 下栏：MACD红柱峰值变矮＝动能衰减',GOLD(),'center',9.5,true);
+  text(ctx,w*0.5,248,'上栏价格新高 + 下栏动能变矮 = 顶背离。是风险警示，不等于立即下跌',MUT(),'center',9);}};
 const boll_fig={n:'图解 · 布林带：收口（波动压缩）→开口（方向选择）',draw(cv){const h=240;const {ctx,w}=setupCanvas(cv,h);
   const X=spanX(ctx,13,24,44);
   const mid=[],half=[];const hs=[12,10,8,6,4.5,4,4,5,8,12,16,20,23];
@@ -6190,7 +6203,70 @@ const z_topvol={n:'图解 · 高位出货：连涨之后 天量+长上影阴线'
   text(ctx,X(5),226,'天量：换手极大＝有人大举派发',UP(),'center',9,true);
   text(ctx,w*0.5,248,'连涨60%后出现「巨量长上影阴线」＝经典出货信号（第7关案例课）',MUT(),'center',9);}};
 
-/* --- 概念图示（答题选项级小图：金叉/死叉/黏合/背离/乖离） --- */
+/* --- 指标专图（第6关每课一图） --- */
+const rsi_fig={n:'图解 · RSI：0-100的力度计（70超买/30超卖，强趋势会钝化）',draw(cv){const h=300;const {ctx,w}=setupCanvas(cv,h);
+ const X=spanX(ctx,9,30,54);
+ const Yp=yMap(26,74,14,92);
+ pricePath(ctx,[30,40,34,48,42,56],X,Yp,TXT(),1.5);
+ text(ctx,12,12,'价格（上）',TXT(),'left',9,true);
+ const top=112,bot=250;
+ ctx.fillStyle=css('--surface3');ctx.globalAlpha=.4;ctx.fillRect(10,top,w-20,bot-top);ctx.globalAlpha=1;
+ const Yr=v=>bot-(v/100)*(bot-top);
+ ctx.fillStyle='rgba(240,82,79,.12)';ctx.fillRect(10,top,w-20,Yr(70)-top);
+ ctx.fillStyle='rgba(51,176,119,.12)';ctx.fillRect(10,Yr(30),w-20,bot-Yr(30));
+ line(ctx,[[10,Yr(70)],[w-10,Yr(70)]],UP(),1.2,[3,2]);
+ line(ctx,[[10,Yr(30)],[w-10,Yr(30)]],DN(),1.2,[3,2]);
+ text(ctx,12,Yr(70)-6,'超买区 70（涨太急，回调风险累积）',UP(),'left',9,true);
+ text(ctx,12,Yr(30)+16,'超卖区 30（跌太急，反弹概率累积）',DN(),'left',9,true);
+ const rsi=[58,68,76,70,58,44,32,26,34,46,58];
+ pricePath(ctx,rsi,X,Yr,PUR(),2);
+ circle(ctx,X(2),Yr(76),11,UP());
+ circle(ctx,X(7),Yr(26),11,DN());
+ text(ctx,12,104,'RSI（下）',TXT(),'left',9,true);
+ text(ctx,w*0.5,284,'强趋势中RSI会「钝化」：可长期停在超买区——先判趋势再信信号（第6关第4课）',MUT(),'center',9);}};
+const kdj_fig={n:'图解 · KDJ：K/D在0-100摆动，J值最敏感（金叉死叉看位置）',draw(cv){const h=300;const {ctx,w}=setupCanvas(cv,h);
+ const X=spanX(ctx,9,30,54);
+ const top=96,bot=240;
+ ctx.fillStyle=css('--surface3');ctx.globalAlpha=.4;ctx.fillRect(10,top,w-20,bot-top);ctx.globalAlpha=1;
+ const Yr=v=>bot-(v/100)*(bot-top);
+ line(ctx,[[10,Yr(80)],[w-10,Yr(80)]],UP(),1.1,[3,2]);
+ line(ctx,[[10,Yr(20)],[w-10,Yr(20)]],DN(),1.1,[3,2]);
+ text(ctx,12,Yr(80)-6,'80 超买区',UP(),'left',9,true);
+ text(ctx,12,Yr(20)+16,'20 超卖区',DN(),'left',9,true);
+ const K=[20,34,28,52,66,58,44,30,24,40,55],D=[26,30,32,42,52,58,50,38,30,34,44],J=[14,42,20,72,94,58,32,14,12,52,78];
+ pricePath(ctx,K,X,Yr,TXT(),1.7);
+ pricePath(ctx,D,X,Yr,GOLD(),1.7);
+ pricePath(ctx,J,X,Yr,PUR(),1.4,[3,2]);
+ circle(ctx,X(3),Yr(52),11,INFO());
+ text(ctx,X(3)+2,Yr(52)+24,'K上穿D＝金叉（顺趋势才可信）',INFO(),'center',9,true);
+ text(ctx,12,12,'K（白）D（金）J（紫·最敏感）——摆动于0-100，J可越界',TXT(),'left',9,true);
+ text(ctx,w*0.5,270,'KDJ灵敏但假信号多：下跌趋势里的金叉大多是陷阱——只认顺势信号（第6关第5课）',MUT(),'center',9);}};
+const chip_fig={n:'图解 · 筹码分布：每个价位的持仓量地图（峰＝成本密集区）',draw(cv){const h=300;const {ctx,w}=setupCanvas(cv,h);
+ const bx=78,bw=w-bx-84,rows=10,rh=22,top=28;
+ const dens=[10,14,18,26,40,56,34,74,44,16];
+ const curRow=6;
+ dens.forEach((d,i)=>{ const y=top+i*rh; const gain=i>=curRow;
+   ctx.fillStyle=i===7?'rgba(232,179,57,.9)':(gain?'rgba(51,176,119,.5)':'rgba(240,82,79,.5)');
+   ctx.fillRect(bx,y,d/80*(w-bx-90),rh-4);
+   text(ctx,bx-4,y+rh-8,(10-i)+'元',MUT(),'right',8.5);});
+ const cy=top+curRow*rh+rh/2;
+ line(ctx,[[bx-8,cy],[w-70,cy]],GOLD(),1.4,[3,2]);
+ text(ctx,w-66,cy+4,'现价',GOLD(),'left',9,true);
+ text(ctx,bx+(w-bx-84)*0.62,top-8,'密集峰＝成本密集区',GOLD(),'left',9,true);
+ text(ctx,12,166,'现价上方的峰＝套牢盘（反弹到这里是压力）',UP(),'left',9,true);
+ text(ctx,12,188,'现价下方的峰＝获利盘（回调到这里是支撑）',DN(),'left',9,true);
+ text(ctx,12,210,'筹码图是换手估算模型：看结构（峰的位置与转移），别抠精确数字（第6关第7课）',MUT(),'center',9);}};
+const ind_stack={n:'图解 · 证据优先级：①趋势位置 → ②量价配合 → ③指标确认（共振才行动）',draw(cv){const h=260;const {ctx,w}=setupCanvas(cv,h);
+ const rows=[['① 趋势与位置','均线排列 / 价格与MA5、MA20的关系','证据优先级最高（第2关）',INFO()],
+             ['② 量价关系','放量缩量 / 换手率是否配合','第二优先（第3关）',GOLD()],
+             ['③ 技术指标','MACD/RSI/KDJ/BOLL 只做动能确认','第三优先（第6关）',PUR()]];
+ rows.forEach((r,i)=>{ const y=18+i*68;
+   ctx.fillStyle=css('--surface3');ctx.fillRect(12,y,w-24,56);
+   text(ctx,24,y+22,r[0],r[3],'left',10,true);
+   text(ctx,24,y+42,r[1],MUT(),'left',9);
+   if(i<2)arrow(ctx,w*0.5,y+58,w*0.5,y+66,MUT());});
+ text(ctx,w*0.5,248,'三者方向一致＝共振，胜率才显著；单一指标信号不单独行动（第6关第8课）',TXT(),'center',9.5,true);}};
+/* --- 概念图示（答题选项级小图：金叉/死叉/黏合/背离/乖离） --- *//* --- 概念图示（答题选项级小图：金叉/死叉/黏合/背离/乖离） --- */
 const CONCEPT_FIGS={
  goldcross:{n:'金叉',d:'短期均线上穿长期均线＝近期买入成本抬升，偏多信号。注意：等交叉确认时价格往往已走出一段（滞后性）——用来确认环境，不是追涨的理由。',
   draw(cv){const h=132;const {ctx,w}=setupCanvas(cv,h);
@@ -6563,7 +6639,7 @@ return {
  vol_bars,vp_pvh,vp_pvl,vp_pvh_down,vp_pvl_down,vp_div,
  intraday_fig,sentiment_cycle,
  macd_struct,macd_cross,macd_div,boll_fig,
- stop_fig,rr_fig,z_breakout,z_topvol,
+ stop_fig,rr_fig,z_breakout,z_topvol,rsi_fig,kdj_fig,chip_fig,ind_stack,
  CONCEPT_FIGS,conceptKeyOf};
 })();
 
@@ -6595,6 +6671,10 @@ const QFIG_KW=[
  {kw:['7×24','24小时','无涨跌停','过山车','极端波动','波动特性'],id:'crypto_vol',cap:'加密波动特性'},
  {kw:['恐惧贪婪','情绪指数'],id:'fng_gauge',cap:'恐惧贪婪指数'},
  {kw:['净值','份额','累计净值','申购','赎回','分红'],id:'nav_line',cap:'基金净值'},
+ {kw:['RSI','相对强弱','超买','超卖','钝化'],kind:'fig',id:'rsi_fig',cap:'RSI示意'},
+ {kw:['KDJ','J值','摆动指标'],kind:'fig',id:'kdj_fig',cap:'KDJ示意'},
+ {kw:['筹码','获利盘','密集峰','套牢峰','成本分布'],kind:'fig',id:'chip_fig',cap:'筹码分布'},
+ {kw:['指标共振','指标本质','证据优先级','三者方向一致'],kind:'fig',id:'ind_stack',cap:'指标使用总则'},
  {kw:['ETF','场内','折溢价'],id:'nav_line',cap:'ETF与净值'},
  {kw:['定投','微笑曲线','摊平','固定金额'],id:'dca_smile',cap:'定投微笑曲线'},
  {kw:['管理费','托管费','费率','申赎费','销售服务费','A类','C类'],id:'fee_drag',cap:'费用复利差'},
@@ -6607,6 +6687,12 @@ const LEVEL_FIG={l1:'candle_anatomy',l2:'ma_cross',l3:'vol_bars',l4:'intraday_fi
  l10:'margin_lever',l11:'crypto_vol',l12:'nav_line'};
 function qFigFor(q){
   if(q.p&&typeof PATTERNS!=='undefined'&&PATTERNS[q.p])return {kind:'pat',id:q.p,cap:'形态对照'};
+  /* 课程级图形路由：该课若有专属配图，本课所有巩固题优先用本课的图（解决“每课配同一张图”） */
+  if(q.lid&&typeof LESSON_FIG_MAP!=='undefined'&&LESSON_FIG_MAP[q.lid]&&LESSON_FIG_MAP[q.lid].length){
+    const pp=LESSON_FIG_MAP[q.lid][0].split(':');
+    const ok=pp[0]==='pat'?(typeof PATTERNS!=='undefined'&&PATTERNS[pp[1]]):!!(LSN_FIGS[pp[1]]||LSN_FIGS.CONCEPT_FIGS[pp[1]]);
+    if(ok)return {kind:pp[0],id:pp[1],cap:'本课图解'};
+  }
   const ck=(typeof conceptKeyOf==='function')?conceptKeyOf(q.q||''):null;
   if(ck&&LSN_FIGS.CONCEPT_FIGS[ck])return {kind:'concept',id:ck,cap:'本题概念图示'};
   if(Array.isArray(q.o)){
@@ -6663,6 +6749,10 @@ const LESSON_FIG_MAP={
  i01:['fig:macd_struct'],
  i02:['fig:macd_cross'],
  i03:['fig:macd_div'],
+ i04:['fig:rsi_fig'],
+ i05:['fig:kdj_fig'],
+ i07:['fig:chip_fig'],
+ i08:['fig:ind_stack'],
  i06:['fig:boll_fig'],
  r02:['fig:stop_fig'],
  r04:['fig:rr_fig'],
